@@ -35,7 +35,6 @@ class Stock(Dataset):
         time_series = self.preprocess(self.df)
         x = []
         y = []
-        #print(type(x), type(y))
         
         for i in range(len(time_series) - self.sequence_length - self.future_time_steps + 1):
             # Input data (past values)
@@ -44,10 +43,8 @@ class Stock(Dataset):
             # Target data (future values)
             if includeInput == True:
                 y.append(time_series[i : i + self.sequence_length + self.future_time_steps])
-                # print("True if")
             else:
                 y.append(time_series[i + self.sequence_length : i + self.sequence_length + self.future_time_steps])
-                # print(time_series[i + self.sequence_length : i + self.sequence_length + self.future_time_steps].size) 14
 
         x = np.stack(x)
         y = np.stack(y)
@@ -55,17 +52,14 @@ class Stock(Dataset):
         # Convert input and target data to PyTorch tensors
         x = torch.from_numpy(x)
         y = torch.from_numpy(y)
-        # print("Input shape:", x.shape, x.dtype)torch.Size([177, 60]) torch.float64
-        # print("Target shape:", y.shape, y.dtype)torch.Size([177, 14]) torch.float64
+
         
         x = x.view(len(x), 1, -1)  # Shape: (batch_size, input_size, sequence_length)
         if includeInput == True:
             y = y.view(len(y), self.sequence_length + self.future_time_steps)  # Shape: (batch_size, self.sequence_length + future_time_steps)
         else:
             y = y.view(len(y), self.future_time_steps)  # Shape: (batch_size, future_time_steps)
-        # Check the shapes of x and y
-        # print("Input shape:", x.shape, x.dtype)torch.Size([177, 1, 60]) torch.float64
-        # print("Target shape:", y.shape, y.dtype)torch.Size([177, 14]) torch.float64
+
         
         return x, y
     def preprocess(self, data):

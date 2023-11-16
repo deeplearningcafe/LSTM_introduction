@@ -30,6 +30,7 @@ torch.manual_seed(seed)
 random.seed(seed)
 np.random.seed(seed)
 
+# to get the same results, but makes training times longer
 """if torch.cuda.is_available():
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
@@ -110,32 +111,15 @@ class TrainingApp:
         return dataset
     
     
-        """
-            the plots are really clear, the model is not predicting well the inputs so is imposible that it can predict the targets, so in the targets tensor,
-            we will include the inputs values ass well, that is, the x[batch, sequence, variables], y[batch, sequence + future steps] and otuput[batch, sequence + future steps] 
-        """
     def initLoaders(self):
         batch_size = self.args.batch_size
         train_dataset = self.initDataset(self.split_index, False)
         val_dataset = self.initDataset(self.split_index, True)
         
-        print(train_dataset[0][0].shape, train_dataset[0][1].shape)
-        """train_dataset = self.dataset[:self.split_index]
-        val_dataset = self.dataset[self.split_index:]"""
-        
-        #print(len(train_dataset), len(val_dataset), train_dataset[0][0].shape, train_dataset[0][1].shape)
         train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         
-        """for batch_idx, batch_tuple in enumerate(train_loader):
-            x_batch, y_batch = batch_tuple[0].to(self.device), batch_tuple[1].to(self.device)
-            print(x_batch.shape, y_batch.shape, x_batch.dtype, y_batch.dtype) # (batch size, features, sequence)
-            print(x_batch.permute(2, 0, 1).shape)
-            
-            x_batch, y_batch = batch_tuple
-            print(x_batch.shape, y_batch.shape, x_batch.dtype, y_batch.dtype) # (batch size, features, sequence)
-            print(x_batch.permute(2, 0, 1).shape)
-            break"""
+
         return train_loader, val_loader
     
     def initModel(self):
@@ -255,25 +239,16 @@ class TrainingApp:
         
         x_batch_gpu = x_batch.to(self.device)
         y_batch_gpu = y_batch.to(self.device)
-        """print(x_batch_gpu[0:2], y_batch_gpu[0:2])
-        print(x_batch_gpu.min(), x_batch_gpu.max(), y_batch_gpu.min(), y_batch_gpu.max())
-        print(torch.var(x_batch_gpu), torch.var(y_batch_gpu))
-        tensor(-1., device='cuda:0', dtype=torch.float64) tensor(1., device='cuda:0', dtype=torch.float64) tensor(-1., device='cuda:0', dtype=torch.float64) tensor(1., device='cuda:0', dtype=torch.float64)
-        tensor(0.1899, device='cuda:0', dtype=torch.float64) tensor(0.3567, device='cuda:0', dtype=torch.float64)"""
-        
-        # print(x_batch_gpu[0].dtype)torch.float64
+                
         outputs = self.model(x_batch_gpu, self.args.future_time_steps)
 
         
         loss_func = nn.MSELoss(reduction='none')
         
         loss_gpu = loss_func(
-            #outputs[:, :self.args.future_time_steps], 
             outputs,
             y_batch_gpu,
         )
-        # print(y_batch_gpu.shape, outputs[:,:y_batch.shape[1]].shape)
-        # print(loss_gpu.shape, loss_gpu.mean())
         
         start_idx = batch_idx * batch_size
         end_idx = start_idx + y_batch.size(0)
@@ -281,7 +256,6 @@ class TrainingApp:
         batch_metrics[METRICS_VALUE_NDX, start_idx:end_idx, :] = y_batch_gpu
         
         if self.includeInput:
-            # ???? outputs[:,:y_batch.shape[1]] is this getting the last 14 elements?
             batch_metrics[METRICS_PRED_NDX, start_idx:end_idx, :] = outputs[:,:y_batch.shape[1]]
         else:
             batch_metrics[METRICS_PRED_NDX, start_idx:end_idx, :] = outputs
@@ -345,21 +319,7 @@ class TrainingApp:
         metrics_dict['NRMSE'] = nrmse
         
         time = datetime.datetime.now()
-        # print(metrics_dict)
-        # print(len(metrics_dict))
-        """log.info(
-            ("Time{} E{} {:8} {loss :.4f} loss, "
-                 + "{correct/all:-5.1f}% correct, "
-                 + "{pr/precision:.4f} precision, "
-                 + "{pr/recall:.4f} recall, "
-                 + "{pr/f1_score:.4f} f1 score"
-            ).format(
-                time,
-                epoch,
-                phase,
-                **metrics_dict,
-            )
-        )"""
+
         log.info(
             ("Time {} | Epoch {} | Phase {} | Loss: {:.4f} | RMSE: {:.4f} | MAE: {:.4f} |"
             + " PDA: {:.4f} | r_squared: {:.4f} |"
@@ -392,27 +352,21 @@ class TrainingApp:
                 loss_func = nn.MSELoss(reduction='none')
                 
                 loss_gpu = loss_func(
-                    #outputs[:, :self.args.future_time_steps], 
                     outputs,
                     y_batch_gpu,
                 )
                 log.info("Mean Loss of the batch: {}".format(loss_gpu.mean()))
             
-            # print(x_batch.shape, x_batch_gpu.shape, outputs.shape) torch.Size([30, 128, 1]) torch.Size([30, 128, 1]) torch.Size([128, 44])
-            # print(x_batch[0].shape, x_batch_gpu[0].shape, outputs[0].shape) torch.Size([128, 1]) torch.Size([128, 1]) torch.Size([44])
 
             colors = [['r', 'g'], ['b', 'y'], ['k', 'm']]
             for i in range(num_graphs):
                 plt.plot(np.arange(outputs[0].shape[0]), outputs[10 * i].cpu().numpy(), colors[i][0], linewidth = 2.0, label='Predicted Close{}'.format(10*i))
                 plt.plot(np.arange(outputs[0].shape[0]), y_batch[10 * i].cpu().numpy(), colors[i][1] + ':', 
                 linewidth = 2.0, label='Actual Close{}'.format(10*i))
-                #plt.plot(np.arange(x_batch[:, 0].shape[0]), x_batch[:, 10 * i].cpu().numpy(), colors[i][1] + ':', linewidth = 2.0)
             
             plt.xlabel('Day')
             plt.ylabel('Close')
             plt.legend()
-            #plt.show()
-            #plt.savefig('LstmPredictor%d.pdf'%epoch)
             self.save_plot(epoch)
             plt.close()
             break
