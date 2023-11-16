@@ -1,0 +1,12 @@
+__pycache__/
+.ipynb_checkpoints/
+solved/
+runs/
+graphs/
+analysis.ipynb
+generate_sine_wave.py
+Simple.ipynb
+Stock prediction LSTM.ipynb
+train.py
+traindata.pt
+main.py
